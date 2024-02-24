@@ -6,21 +6,27 @@ local utils = require("mp.utils")
 --Get timestamp
 local function getTimestamp()
     local pos = mp.get_property_number("time-pos")
+    local result = ""
+    
     if pos <= 0 then
-        return "00:00:00.000";
+        return "00:00:00.0000";
     else
-        local hours = string.format("%02.f", math.floor(pos/3600))
-        local mins = string.format("%02.f", math.floor(pos/60 - (hours*60)))
-        local secs = string.format("%02.f", math.floor(pos - hours*60*60 - mins*60))
-        local msecs = string.format("%03.f", pos*1000 - hours*60*60*1000 - mins*60*1000 - secs*1000)
-        local result = hours..":"..mins..":"..secs.."."..msecs
+        local h = string.format("%02.f", math.floor(pos/3600))
+        local m = string.format("%02.f", math.floor(pos/60 - (h*60)))
+        local s = string.format("%02.f", math.floor(pos - h*60*60 - m*60))
+        local ms = string.format("%04.f", pos*1000 - h*60*60*1000 - m*60*1000 - s*1000)
+        result = h..":"..m..":"..s.."."..ms
     end
     return result
 end
---Save to to a file
+
 
 --Jump between timestamps
+local function jumpToPos(pos)
+    mp.set_property_number("time-pos", pos)
+end
 
+--Save to to a file
 
 --method to delete bookmarks, delete all
 
@@ -29,8 +35,11 @@ end
 --OSD?
 
 local function printTimestamp()
-    mp.osd_message(getTimestamp, 3)
-    --mp.osd_message("test", 3)
+    mp.osd_message(getTimestamp(), 3)
+end
+
+local function test()
+    jumpToPos(3000)
 end
 
 --pick an unobtrusive keybind for bookmarking
@@ -39,4 +48,4 @@ end
 
 --mp.add_key_binding("C", "create_chapter", create_chapter, {repeatable=true})
 --mp.add_key_binding("B", "write_chapter", write_chapter, {repeatable=false})
-mp.add_key_binding("=", "printTimestamp", printTimestamp, {repeatable=true})
+mp.add_key_binding("=", "test", test, {repeatable=true})
