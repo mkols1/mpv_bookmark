@@ -10,4 +10,10 @@ My personal use for this was to bookmark timestamps of a show or movie so that I
 
 # TODO
 
-actually making it
+- Bookmarking
+	- save to file: DONE
+	- user option to set save directory
+	- video directory by default
+- deleting bookmarks
+- jumping between bookmarks 
+- osd ui
