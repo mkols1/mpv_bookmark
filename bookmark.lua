@@ -9,9 +9,8 @@ local utils = require("mp.utils")
 
 --Get timestamp
 local function getTimestamp(pos)
-    --local pos = mp.get_property_number("time-pos")
+    --formats a given time in seconds
     local result = ""
-    
     if pos <= 0 then
         return "00:00:00.0000";
     else
@@ -25,19 +24,48 @@ local function getTimestamp(pos)
 end
 
 local function printTimestamp()
+    --prints the current timestamp in a readable format
     mp.osd_message(getTimestamp(), 3)
 end
 
 local function lessThan(a, b)
-    if a == 0 then
-      -- a is either equal to b, or it has to go at the end.
-      return false
-    elseif b == 0 then
-      -- b has to go at the end.
-      return true
-    else
-      -- Neither argument is 0.
-      return a < b
+    --comparison for sorting timestamps
+    return a < b
+end
+
+local function sortTimestamps(tstamps)
+    --tstamps an array of timestamps
+    local fn = mp.get_property("filename/no-ext") .. ".bookmark"
+    local f = io.open(fn, "w")
+    if f then
+        if #tstamps > 0 then
+            table.sort(tstamps, lessThan)
+        end
+
+        -- TODO: return the sorted set, for now just return sorted list of 
+        --      bookmarks
+
+        --write to file
+        for _, times in ipairs(tstamps) do
+            f:write(times, "\n")
+        end
+        f:close()
+    end
+end
+
+local function updateTimestamps(tstamps)
+    --save timestamps back to file
+    local fn = mp.get_property("filename/no-ext") .. ".bookmark"
+    local f = io.open(fn, "w")
+    if f then
+        --if #tstamps > 0 then
+        --    table.sort(tstamps, lessThan)
+       -- end
+        --write to file
+        for _, times in ipairs(tstamps) do
+            f:write(times, "\n")
+        end
+        f:close()
     end
 end
 
@@ -56,31 +84,13 @@ local function loadTimestamps()
             --mp.osd_message(tostring(line), 3)    -- test
         end
         f:close()
+
+        updateTimestamps(tstamps)
+        return tstamps
     end
-    --timestamps[i] = tonumber(string.gsub(line, "\n", ""))
-    f = io.open(fn, "w")
-    if f then
-        if #tstamps > 0 then
-            table.sort(tstamps, lessThan)
-        end
-
-        -- TODO: return the sorted set, for now just return sorted list of 
-        --      bookmarks
-
-
-        for _, times in ipairs(tstamps) do
-            f:write(times, "\n")
-        end
-
-        f:close()
-    end
-    --io.output(f)
-    --io.write("test1")
-
-    --for j = 0, #timestamps do
-    --    io.write(string.format("%s", tostring(timestamps[j]), "\n"))
-    --end
 end
+
+
 
 local function saveTimestamp()
     --save new timestamps to the bookmark file
@@ -97,10 +107,23 @@ local function saveTimestamp()
     end
 end
 
+local function deleteTimestamp(ts)
+    --delete the timestamp from the given array of timestamps
+    local tstamps = loadTimestamps()
+    for i = 1, #tstamps do
+        if tstamps[i] == ts then
+            table.remove(tstamps, i)
+        end
+    end
+    --sorts it back into the file
+    sortTimestamps(tstamps)
+end
+
 local function test()
     --jumpToPos(3000)
     --mp.osd_message(mp.get_property("filename/no-ext") .. ".ts", 3)
-    saveTimestamp()
+    --saveTimestamp()
+    deleteTimestamp(766.453)
 end
 
 
