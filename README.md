@@ -11,7 +11,7 @@ My personal use for this was to bookmark timestamps of a show or movie so that I
 # TODO
 
 - Bookmarking
-	- save to file
+	- save to file: DONE
 	- user option to set save directory
 	- video directory by default
 - deleting bookmarks
