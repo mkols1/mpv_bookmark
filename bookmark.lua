@@ -8,10 +8,19 @@ local utils = require("mp.utils")
 --          property list
 
 --Get timestamp
+
+Bookmarks = {}
+CurrentBM = 0
+
 local function getTimestamp(pos)
-    --formats a given time in seconds
+    --format a given time in seconds
     local result = ""
-    if pos <= 0 then
+
+    if pos < 0 then
+        pos = mp.get_property_number("time-pos")
+    end
+
+    if pos == 0 then
         return "00:00:00.0000";
     else
         local h = string.format("%02.f", math.floor(pos/3600))
@@ -23,9 +32,19 @@ local function getTimestamp(pos)
     return result
 end
 
-local function printTimestamp()
-    --prints the current timestamp in a readable format
-    mp.osd_message(getTimestamp(), 3)
+
+
+local function updateBookmarks()
+    --save Bookmarks back to the file
+    local fn = mp.get_property("filename/no-ext") .. ".bookmark"
+    local f = io.open(fn, "w")
+    if f then
+
+        for _, times in ipairs(Bookmarks) do
+            f:write(times, "\n")
+        end
+        f:close()
+    end
 end
 
 local function lessThan(a, b)
@@ -33,117 +52,146 @@ local function lessThan(a, b)
     return a < b
 end
 
-local function sortTimestamps(tstamps)
-    --tstamps an array of timestamps
-    local fn = mp.get_property("filename/no-ext") .. ".bookmark"
-    local f = io.open(fn, "w")
-    if f then
-        if #tstamps > 0 then
-            table.sort(tstamps, lessThan)
-        end
-
-        -- TODO: return the sorted set, for now just return sorted list of 
-        --      bookmarks
-
-        --write to file
-        for _, times in ipairs(tstamps) do
-            f:write(times, "\n")
-        end
-        f:close()
-    end
-end
-
-local function updateTimestamps(tstamps)
-    --save timestamps back to file
-    local fn = mp.get_property("filename/no-ext") .. ".bookmark"
-    local f = io.open(fn, "w")
-    if f then
-        --if #tstamps > 0 then
-        --    table.sort(tstamps, lessThan)
-       -- end
-        --write to file
-        for _, times in ipairs(tstamps) do
-            f:write(times, "\n")
-        end
-        f:close()
-    end
-end
-
-local function loadTimestamps()
+local function loadBookmarks()
+    --load bookmarks from file
+    Bookmarks = {}
     local fn = mp.get_property("filename/no-ext") .. ".bookmark"
     local f = io.open(fn, "r")
-    local tstamps = {}
-
     if f == nil then
         mp.osd_message("Load error", 3)
+        return
     else
         
+        --load then sort the timestamps to the global variable Bookmarks
         for line in f:lines() do
-            --table.insert(tstamps, tonumber(string.gsub(line, "\n", "")))
-            table.insert(tstamps, tonumber(line))
-            --mp.osd_message(tostring(line), 3)    -- test
+            table.insert(Bookmarks, tonumber(line))
         end
         f:close()
 
-        updateTimestamps(tstamps)
-        return tstamps
+        if #Bookmarks == 0 then
+            mp.osd_message("No Bookmarks.", 3)
+            return
+        else
+            table.sort(Bookmarks, lessThan)
+        end
+
+        --mp.osd_message("Bookmarks Loaded.", 3)
     end
 end
 
-
-
-local function saveTimestamp()
+local function newBookmark()
     --save new timestamps to the bookmark file
     --appends onto the end
     local fn = mp.get_property("filename/no-ext") .. ".bookmark"
     local f = io.open(fn, "a")
-
+    
     if f then
         local pos = mp.get_property_number("time-pos")
-        --f:write(string.format("%s", tostring(pos)), "\n")
         f:write(pos, "\n")
         f:close()
-        mp.osd_message("Export file to: "..fn, 3)
+        local message = "Bookmarked: " .. getTimestamp(-1)
+        mp.osd_message(message, 3)
+    else
+        mp.osd_message("Bookmark failed.", 3)
     end
+
+    loadBookmarks()
 end
 
-local function deleteTimestamp(ts)
-    --delete the timestamp from the given array of timestamps
-    local tstamps = loadTimestamps()
-    for i = 1, #tstamps do
-        if tstamps[i] == ts then
-            table.remove(tstamps, i)
+local function jumpRight()
+    --jump to the right bookmark from the current spot
+    if mp.get_property_number("time-pos") >= (mp.get_property_number("duration") - 1) then
+        return
+    end
+
+    loadBookmarks()
+    local message
+    for i=1, #Bookmarks do
+        if Bookmarks[i] > (mp.get_property_number("time-pos") + 0.3) then
+            --jump to next bookmark bigger than current timestamp
+            message = "Jumped to " .. getTimestamp(Bookmarks[i])
+            mp.osd_message(message, 1.5)
+            mp.set_property_number("time-pos", Bookmarks[i])
+            return
         end
     end
-    --sorts it back into the file
-    sortTimestamps(tstamps)
+    --otherwise jump to the end
+    message = "Jumped to " .. getTimestamp(mp.get_property_number("duration"))
+    mp.osd_message(message, 1.5)
+    mp.set_property_number("time-pos", mp.get_property_number("duration"))
+
 end
 
-local function test()
-    --jumpToPos(3000)
-    --mp.osd_message(mp.get_property("filename/no-ext") .. ".ts", 3)
-    --saveTimestamp()
-    deleteTimestamp(766.453)
+local function jumpLeft()
+    --jump to the bookmark to the left of the current timestamp
+    if mp.get_property_number("time-pos") == 0 then
+        return
+    end
+
+    loadBookmarks()
+    local last = 0
+    local message
+    for i=1, #Bookmarks do
+        if Bookmarks[i] >= (mp.get_property_number("time-pos") - 1) then
+            
+            if i == 1 then
+                --jump to beginning
+                message = "Jumped to 00:00:00.0000"
+                mp.set_property_number("time-pos", 0)
+                mp.osd_message(message, 1.5)
+                return
+            else
+                --otherwise jump to the next right timestamp
+                message = "Jumped to " .. getTimestamp(Bookmarks[i-1])
+                mp.set_property_number("time-pos", Bookmarks[i-1])
+                mp.osd_message(message, 1.5)
+                return
+            end
+        end
+        last = Bookmarks[i]
+    end
+    --jump to last bookmark 
+    message = "Jumped to " .. getTimestamp(last)
+    mp.osd_message(message, 3)
+    mp.set_property_number("time-pos", last)
+    
 end
 
-
---Jump between timestamps
-local function jumpToPos(pos)
-    mp.set_property_number("time-pos", pos)
+local function deleteBookmark(ts)
+    --delete the bookmark at the given timestamp
+    loadBookmarks()
+    for i = 1, #Bookmarks do
+        if Bookmarks[i] == ts then
+            table.remove(Bookmarks, i)
+        end
+    end
+    
+    updateBookmarks()
 end
 
---TODO: delete bookmark
+local function deleteClosest()
+    --delete the closest bookmark before the current timestamp
+end
 
---TODO: delete all bookmarks
+local function deleteAll()
+    --delete all Bookmarks
+    Bookmarks = {}
+    updateBookmarks()
+    mp.osd_message("All bookmarks deleted.", 3)
+end
+
+--------------------------------------------------------------------------------
+
 
 --TODO: OSD
-
 --TODO: default save location, video directory by default
-
 --TODO: find good keybinds
-
 
 --mp.add_key_binding("C", "create_chapter", create_chapter, {repeatable=true})
 --mp.add_key_binding("B", "write_chapter", write_chapter, {repeatable=false})
-mp.add_key_binding("=", "test", test, {repeatable=true})
-mp.add_key_binding("-", "loadTimestamps", loadTimestamps, {repeatable=true})
+mp.add_key_binding("\'", "jumpRight", jumpRight, {repeatable=false})
+mp.add_key_binding(";", "jumpLeft", jumpLeft, {repeatable=false})
+
+--mp.add_key_binding("-", "loadTimestamps", loadTimestamps, {repeatable=true})
+mp.add_key_binding("+", "newBookmark", newBookmark, {repeatable=true})
+--loadBookmarks()
